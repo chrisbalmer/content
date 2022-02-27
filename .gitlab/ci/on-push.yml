@@ -64,8 +64,8 @@ create-instances:
   needs: []
   stage: create-instances
   script:
-    - curl https://user-images.githubusercontent.com/44546251/50418178-b89a0780-0832-11e9-86ee-8b206273ca11.png
-    - python -c "import requests; import os; requests.get('https://user-images.githubusercontent.com/44546251/50418178-b89a0780-0832-11e9-86ee-8b206273ca11.png', verify=os.getenv('INTERNAL_CA'))"
+    - pip3 install requests==2.27.1
+    - python3 -c "import requests; import os; requests.get('https://user-images.githubusercontent.com/44546251/50418178-b89a0780-0832-11e9-86ee-8b206273ca11.png')" || python3 -c "import certifi; print(certifi.where())" || exit 1
     - !reference [.download-demisto-conf]
     - !reference [.create-id-set]
     - !reference [.create-release-notes-and-common-docs]
