@@ -1048,6 +1048,28 @@ Returns the Splunk's username matching the given Cortex XSOAR's username.
 >| admin | unassigned |
 
 
+### splunk-add-license
+***
+Adds a license to Splunk.
+
+
+#### Base Command
+
+`splunk-add-license`
+#### Input
+
+| **Argument Name** | **Description** | **Required** |
+| --- | --- | --- |
+| name | Path to the license on the server if not using a license file. | No | 
+| entry_id | Entry ID of the XML license file. | No | 
+
+Requires either name or entry_id. When using entry_id, the name will be populated with arbitrary text due to the API requiring the field.
+
+#### Context Output
+
+None
+
+
 ## Additional Information
 To get the HEC token
 1. Go to the Splunk UI.
