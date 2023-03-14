@@ -2337,6 +2337,35 @@ def splunk_parse_raw_command():
     demisto.results({"Type": 1, "ContentsFormat": "json", "Contents": json.dumps(rawDict), "EntryContext": ec})
 
 
+def splunk_add_license_command(service: client.Service, args: dict) -> CommandResults:
+    name = args.get('name', '')
+    entry_id = args.get('entry_id', '')
+    if entry_id:
+        name = 'Required but not used'
+
+    if not name:
+        raise ValueError('Either name or entry_id is required')
+
+    uri = '/services/licenser/licenses'
+    body = {
+        'name': name
+    }
+    if entry_id:
+        file_result = demisto.getFilePath(entry_id)
+        file_path = file_result['path']
+        with open(file_path, 'r') as file:
+            payload = file.read().replace('\n', '')
+        body['payload'] = payload
+
+    demisto.debug(f'Adding license with name: {name} and payload {payload}.')
+    demisto.debug(f'{dir(service)}')
+    service.post(uri, body=body)
+
+    return CommandResults(
+        readable_output='License was added successfully.'
+    )
+
+
 def test_module(service: client.Service) -> None:
     try:
         # validate connection
@@ -2714,6 +2743,8 @@ def main():  # pragma: no cover
         update_remote_system_command(demisto.args(), demisto.params(), service, auth_token, mapper)
     elif command == 'splunk-get-username-by-xsoar-user':
         return_results(mapper.get_splunk_user_by_xsoar_command(demisto.args()))
+    elif command == 'splunk-add-license':
+        return_results(splunk_add_license_command(service, demisto.args()))
     else:
         raise NotImplementedError('Command not implemented: {}'.format(command))
 
