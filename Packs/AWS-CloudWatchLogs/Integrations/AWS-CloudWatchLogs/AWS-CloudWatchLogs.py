@@ -1,7 +1,8 @@
 import demistomock as demisto  # noqa: F401
 from CommonServerPython import *  # noqa: F401
 from datetime import date
-
+from datetime import timedelta
+from datetime import datetime
 
 class DatetimeEncoder(json.JSONEncoder):
     def default(self, obj):  # pylint: disable=E0202
@@ -400,6 +401,69 @@ def describe_metric_filters(args, aws_client):
         return raise_error(e)
 
 
+def fetch_incidents(aws_client, log_group_name: str, log_stream_names: List[str], first_fetch: str,
+                    filter_pattern: str = '', max_fetch: int = 0):
+    demisto.debug(f'Fetching incidents with params log_group_name: {log_group_name}, '
+                  f'log_stream_names: {log_stream_names}, first_fetch: {first_fetch}, filter_pattern: {filter_pattern}, max_fetch: {max_fetch}')
+    client = aws_client.aws_session(service='logs')
+
+    last_run = demisto.getLastRun()
+    if last_run and last_run.get('last_fetch'):
+        start_time = last_run.get('last_fetch')
+    else:
+        start_time = first_fetch.timestamp() * 1000
+
+    incidents = []
+    kwargs = {
+        'logGroupName': log_group_name,
+        'startTime': int(start_time),
+        'filterPattern': filter_pattern,
+        'interleaved': False
+    }
+
+    if log_stream_names:
+        kwargs.update({'logStreamNames': parse_resource_ids(','.join(log_stream_names))})
+
+    if max_fetch:
+        kwargs.update({'max_fetch': max_fetch})
+
+    demisto.debug(f'Running fetch with {json.dumps(kwargs)}')
+    response = client.filter_log_events(**kwargs)
+    demisto.debug(f'Received response {json.dumps(response)}')
+
+    last_fetch = start_time
+    for event in response['events']:
+        event_time = event['timestamp']
+        if type(event_time) is str and event_time.isnumeric():
+            event_time = int(event_time)
+        
+        if type(event_time) is int and event_time > last_fetch:
+            last_fetch = event_time
+
+        try:
+            event['message'] = json.loads(event['message'])
+        except json.decoder.JSONDecodeError:
+            demisto.debug(f'Could not parse message `{event["message"]}` as JSON')
+
+        incidents.append({
+            'name': f'AWS CloudWatch Logs {log_group_name}',
+            'occurred': timestamp_to_datestring(event_time),
+            'rawJSON': json.dumps(event)
+        })
+
+    if len(incidents) > 0:
+        # If we keep last_fetch equal to the last event's time, we will 
+        # continue to pull the same event on the next fetch.
+        last_run['last_fetch'] = last_fetch + 1
+    else:
+        last_run['last_fetch'] = last_fetch
+    demisto.debug(f'Setting last run to {json.dumps(last_run)}')
+    demisto.debug(f'Returning {len(incidents)} incidents')
+    demisto.incidents(incidents)
+    demisto.setLastRun(last_run)
+
+
+
 def test_function(aws_client):
     try:
         client = aws_client.aws_session(service='logs')
@@ -437,6 +501,22 @@ def main():
     if command == 'test-module':
         # This is the call made when pressing the integration test button.
         result = test_function(aws_client)
+
+    if command == 'fetch-incidents':
+        log_group_name = params.get('log_group_name', '')
+        log_stream_names = params.get('log_stream_names', '')
+        filter_pattern = params.get('filter_pattern', '')
+        max_fetch = arg_to_number(params.get('max_fetch', 50))
+        first_fetch = arg_to_datetime(
+            arg=params['first_fetch'], arg_name='First fetch time', required=True
+        )
+        fetch_incidents(aws_client,
+                        log_group_name,
+                        log_stream_names,
+                        first_fetch,
+                        filter_pattern,
+                        max_fetch)
+        return
 
     if command == 'aws-logs-create-log-group':
         result = create_log_group(args, aws_client)

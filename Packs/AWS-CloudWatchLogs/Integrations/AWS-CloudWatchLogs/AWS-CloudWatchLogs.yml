@@ -53,6 +53,46 @@ configuration:
   additionalinfo: "The maximum number of retry attempts when connection or throttling errors are encountered. Set to 0 to disable retries. The default value is 5 and the limit is 10. Note: Increasing the number of retries will increase the execution time."
   required: false
   type: 0
+- name: log_group_name
+  display: Log group name
+  required: false
+  defaultvalue: Name of the log group for fetching logs from.
+  type: 0
+  additionalinfo: ""
+- name: log_stream_names
+  display: Log stream names
+  required: false
+  defaultvalue:
+  type: 16
+  additionalinfo: Names of the log stream to fetch from.
+  options:
+  - ""
+- display: First fetch timestamp (<number> <time unit>, e.g., 12 hours, 7 days)
+  name: first_fetch
+  defaultvalue: 1 hour
+  additionalinfo: First alert created date to fetch. e.g., "1 min ago","2 weeks ago","3 months ago"
+  required: false
+  type: 0
+- name: filter_pattern
+  display: Filter pattern
+  required: false
+  defaultvalue:
+  type: 0
+  additionalinfo: Filter pattern to use when fetching logs.
+- display: Maximum incidents to fetch.
+  name: max_fetch
+  defaultvalue: '50'
+  additionalinfo: Maximum number of incidents per fetch. The maximum is 200.
+  required: false
+  type: 0
+- display: Incident type
+  name: incidentType
+  required: false
+  type: 13
+- display: Fetch incidents
+  name: isFetch
+  required: false
+  type: 8
 script:
   script: ''
   type: python
@@ -435,8 +475,10 @@ script:
       description: The name of the log group.
       type: string
     description: Lists the specified metric filters. You can list all the metric filters or filter the results by log name, prefix, metric name, or metric namespace.
-  dockerimage: demisto/boto3py3:1.0.0.45936
+  dockerimage: demisto/boto3py3:1.0.0.50207
   runonce: false
+  feed: false
+  isfetch: true
 tests:
 - No Tests
 fromversion: 5.0.0
