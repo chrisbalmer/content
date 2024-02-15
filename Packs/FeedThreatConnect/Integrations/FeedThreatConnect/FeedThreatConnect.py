@@ -235,6 +235,15 @@ def calculate_dbot_score(threat_assess_score: Optional[Union[int, str]] = None) 
     return score
 
 
+def parse_indicators(indicators: list) -> List[Dict[str, Any]]:
+    parsed = []
+    for indicator in indicators:
+        parsed_indicator = parse_indicator(indicator)
+        if parsed_indicator:
+            parsed.append(parsed_indicator)
+    return parsed
+
+
 def parse_indicator(indicator: Dict[str, str]) -> Dict[str, Any]:
     """ Parsing indicator by indicators demisto convension.
     Args:
@@ -245,6 +254,7 @@ def parse_indicator(indicator: Dict[str, str]) -> Dict[str, Any]:
     indicator_type = INDICATOR_MAPPING_NAMES.get(indicator.get('type', ''))
     if not indicator_type:
         demisto.debug(f"Type not found. Indicator data: {json.dumps(indicator)}")
+        return {}
     indicator_value = indicator.get('summary') or indicator.get('name')
     fields = create_indicator_fields(indicator, indicator_type)
     relationships = create_indicator_relationships(fields, indicator_type, indicator_value)  # type: ignore
@@ -603,7 +613,7 @@ def get_indicators_command(client: Client, args: dict) -> dict:  # type: ignore 
     demisto.debug("URL: " + url)
     response, status = client.make_request(Method.GET, url)
     if status == 'Success':
-        t = [parse_indicator(indicator) for indicator in response]
+        t = parse_indicators(response)
         readable_output: str = tableToMarkdown(name=f"{INTEGRATION_NAME} - Indicators",
                                                t=t, removeNull=True)  # type: ignore # noqa
 
@@ -653,7 +663,7 @@ def main():  # pragma: no cover # noqa
             next_run = get_updated_last_run(indicators, groups, last_run)
             demisto.setLastRun(next_run)
 
-            indicators = [parse_indicator(indicator) for indicator in indicators]
+            indicators = parse_indicators(indicators)
             demisto.debug(f'The number of new indicators: {len(indicators)}')
             groups = [parse_indicator(group) for group in groups]
             demisto.debug(f'The number of new groups: {len(groups)}')
