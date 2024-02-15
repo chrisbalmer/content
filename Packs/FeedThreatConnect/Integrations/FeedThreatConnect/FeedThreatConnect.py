@@ -263,6 +263,8 @@ def parse_indicator(indicator: Dict[str, str]) -> Dict[str, Any]:
 def create_indicator_fields(indicator, indicator_type):
     """Creating an indicator fields from a raw indicator"""
     params = demisto.params()
+    if indicator_type not in TC_INDICATOR_TO_XSOAR_INDICATOR:
+        demisto.debug(f"Key not found. Indicator data: {json.dumps(indicator)}")
     indicator_fields_mapping = TC_INDICATOR_TO_XSOAR_INDICATOR[indicator_type]
     fields: dict = {}
 
