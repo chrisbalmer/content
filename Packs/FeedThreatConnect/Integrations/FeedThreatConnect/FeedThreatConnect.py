@@ -243,6 +243,8 @@ def parse_indicator(indicator: Dict[str, str]) -> Dict[str, Any]:
         dict: Parsed indicator.
     """
     indicator_type = INDICATOR_MAPPING_NAMES.get(indicator.get('type', ''))
+    if not indicator_type:
+        demisto.debug(f"Type not found. Indicator data: {json.dumps(indicator)}")
     indicator_value = indicator.get('summary') or indicator.get('name')
     fields = create_indicator_fields(indicator, indicator_type)
     relationships = create_indicator_relationships(fields, indicator_type, indicator_value)  # type: ignore
