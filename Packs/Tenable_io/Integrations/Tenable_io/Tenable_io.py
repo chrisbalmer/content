@@ -1723,7 +1723,7 @@ def list_policies_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Policies',
         outputs=response_dict.get("policies"),
         readable_output=readable_output,
-        raw_response=response_dict.get("policies"))
+        raw_response=response_dict)
 
 
 def list_templates_command(client: Client) -> CommandResults:
@@ -1754,7 +1754,7 @@ def list_templates_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Templates',
         outputs=response_dict.get("templates"),
         readable_output=readable_output,
-        raw_response=response_dict.get("templates"))
+        raw_response=response_dict)
 
 
 def list_folders_command(client: Client) -> CommandResults:
@@ -1765,7 +1765,7 @@ def list_folders_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Folders',
         outputs=response_dict.get("folders"),
         readable_output=readable_output,
-        raw_response=response_dict.get("folders"))
+        raw_response=raw_response)
 
 
 ''' CONNECTOR COMMANDS '''
@@ -1788,7 +1788,7 @@ def list_connectors_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Connectors',
         outputs=response_dict.get("connectors"),
         readable_output=readable_output,
-        raw_response=response_dict.get("connectors"))
+        raw_response=response_dict)
 
 
 ''' PLUGIN COMMANDS '''
@@ -1803,7 +1803,7 @@ def list_plugin_families_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Families',
         outputs=response_dict.get("families"),
         readable_output=readable_output,
-        raw_response=response_dict.get("families"))
+        raw_response=response_dict)
 
 
 def list_plugins_by_family_command(client: Client) -> CommandResults:
@@ -1844,7 +1844,6 @@ def get_plugin_details_command(client: Client) -> CommandResults:
 
     for attr in details.get("attributes"):
         plugin_detail[attr.get("attribute_name")] = attr.get("attribute_value")
-    description = plugin_detail["description"]
     name = plugin_detail["name"]
 
     readable_output = tableToMarkdown(
@@ -1902,11 +1901,11 @@ def list_users_command(client: Client) -> CommandResults:
     users = []
     for user in response_dict.get("users"):
         if user.get("last_apikey_access"):
-            user["last_apikey_access_date"] = strftime("%d %b %Y %H:%M:%S", gmtime(user.get("last_apikey_access")/1000))
+            user["last_apikey_access_date"] = datetime.strftime("%d %b %Y %H:%M:%S", gmtime(user.get("last_apikey_access")/1000))
         if user.get("lastlogin"):
-            user["lastlogin_date"] = strftime("%d %b %Y %H:%M:%S", gmtime(user.get("lastlogin")/1000))
+            user["lastlogin_date"] = datetime.strftime("%d %b %Y %H:%M:%S", gmtime(user.get("lastlogin")/1000))
         if user.get("last_login_attempt"):
-            user["last_login_attempt_date"] = strftime("%d %b %Y %H:%M:%S", gmtime(user.get("last_login_attempt")/1000))
+            user["last_login_attempt_date"] = datetime.strftime("%d %b %Y %H:%M:%S", gmtime(user.get("last_login_attempt")/1000))
         users.append(user)
 
     readable_output = tableToMarkdown(
@@ -1916,7 +1915,7 @@ def list_users_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Users',
         outputs=users,
         readable_output=readable_output,
-        raw_response=users)
+        raw_response=response_dict)
 
 
 def delete_user_command(client: Client) -> CommandResults:
@@ -1925,7 +1924,7 @@ def delete_user_command(client: Client) -> CommandResults:
         outputs_prefix='TenableIO.Delete.User',
         outputs={"User": demisto.args().get("user_id"), "Removed": True},
         readable_output="Success",
-        raw_response={"User": demisto.args().get("user_id"), "Removed": True})
+        raw_response=response_dict)
 
 
 ''' FETCH COMMANDS '''
