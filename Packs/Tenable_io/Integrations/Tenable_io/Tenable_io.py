@@ -177,7 +177,7 @@ class Client(BaseClient):
 
     def list_policies(self):
         return self._http_request(
-            'GET', f'policies')
+            'GET', 'policies')
 
     def list_templates(self, template_type):
         return self._http_request(
@@ -185,7 +185,7 @@ class Client(BaseClient):
 
     def list_folders(self):
         return self._http_request(
-            'GET', f'folders')
+            'GET', 'folders')
 
     def list_plugin_families(self, listAll):
         return self._http_request(
@@ -197,28 +197,18 @@ class Client(BaseClient):
 
     def list_scanners(self):
         return self._http_request(
-            'GET', f'scanners')
+            'GET', 'scanners')
 
-    def list_connectors(self, limit, offset, sort):
-        url = "settings/connectors"
-        query = ""
-        if limit:
-            query = query + f"limit={limit}&"
-        if offset:
-            query = query + f"offset={offset}&"
-        if sort:
-            query = query + f"sort={sort}"
-
-        if query != "":
-            url = url + f"?{query}"
-            url = url.strip("&")
-
+    def list_connectors(self, params):
+        remove_nulls_from_dictionary(params)
         return self._http_request(
-            'GET', url)
+            'GET',
+            "settings/connectors",
+            params=params)
 
     def list_users(self):
         return self._http_request(
-            'GET', f'users')
+            'GET', 'users')
 
     def delete_user(self, user_id):
         return self._http_request(
@@ -229,6 +219,17 @@ class Client(BaseClient):
         return self._http_request(
             'GET', f'scans/{scan_id}/history',
             params=params)
+
+    def get_plugin_details(self, plugin_id: str) -> Dict[str, Any]:
+        """Gets plugin details using the 'plugins/plugin/{plugin_id}' endpoint.
+
+        Args:
+            plugin_id (string): id of the plugin.
+
+        Returns:
+            dict: dict containing information on an plugin.
+        """
+        return self._http_request(f"plugins/plugin/{plugin_id}")
 
     def initiate_export_scan(self, scan_id: str, params: dict, body: dict) -> dict:
         remove_nulls_from_dictionary(params)
@@ -241,7 +242,7 @@ class Client(BaseClient):
     def create_scan(self, body: dict) -> dict:
         return self._http_request(
             'POST',
-            f'scans',
+            'scans',
             json_data=body)
 
     def check_export_scan_status(self, scan_id: str, file_id: str) -> dict:
@@ -603,25 +604,6 @@ def send_asset_details_request(asset_id: str) -> Dict[str, Any]:
         dict: dict containing information on an asset.
     """
     full_url = f"{BASE_URL}workbenches/assets/{asset_id}/info"
-    try:
-        res = requests.get(full_url, headers=AUTH_HEADERS, verify=USE_SSL)
-        res.raise_for_status()
-    except HTTPError as exc:
-        return_error(f'Error calling for url {full_url}: error message {exc}')
-
-    return res.json()
-
-
-def send_plugin_details_request(plugin_id: str) -> Dict[str, Any]:
-    """Gets plugin details using the '{BASE_URL}plugins/plugin/{plugin_id}' endpoint.
-
-    Args:
-        plugin_id (string): id of the plugin.
-
-    Returns:
-        dict: dict containing information on an plugin.
-    """
-    full_url = f"{BASE_URL}plugins/plugin/{plugin_id}"
     try:
         res = requests.get(full_url, headers=AUTH_HEADERS, verify=USE_SSL)
         res.raise_for_status()
@@ -1752,7 +1734,22 @@ def list_templates_command(client: Client) -> CommandResults:
     response_dict = client.list_templates(template_type)
 
     readable_output = tableToMarkdown(
-        f'Tenable Templates', response_dict.get("templates"), headers=["title", "uuid", "name", "desc", "manager_only", "is_agent", "is_was", "cloud_only", "unsupported", "subscription_only", "order"])
+        'Tenable Templates',
+        response_dict.get("templates"), headers=[
+            "title",
+            "uuid",
+            "name",
+            "desc",
+            "manager_only",
+            "is_agent",
+            "is_was",
+            "cloud_only",
+            "unsupported",
+            "subscription_only",
+            "order"
+        ]
+    )
+
     return CommandResults(
         outputs_prefix='TenableIO.Templates',
         outputs=response_dict.get("templates"),
@@ -1763,7 +1760,7 @@ def list_templates_command(client: Client) -> CommandResults:
 def list_folders_command(client: Client) -> CommandResults:
     response_dict = client.list_folders()
     readable_output = tableToMarkdown(
-        f'Tenable Folders', response_dict.get("folders"), headers=["id", "name", "type", "default_tag", "custom", "unread_count"])
+        'Tenable Folders', response_dict.get("folders"), headers=["id", "name", "type", "default_tag", "custom", "unread_count"])
     return CommandResults(
         outputs_prefix='TenableIO.Folders',
         outputs=response_dict.get("folders"),
@@ -1775,11 +1772,16 @@ def list_folders_command(client: Client) -> CommandResults:
 
 
 def list_connectors_command(client: Client) -> CommandResults:
-    limit = demisto.args().get("limit", False)
-    offset = demisto.args().get("offset", False)
-    sort = demisto.args().get("sort", False)
+    limit = demisto.args().get("limit", "")
+    offset = demisto.args().get("offset", "")
+    sort = demisto.args().get("sort", "")
 
-    response_dict = client.list_connectors(limit, offset, sort)
+    params = {
+        "limit": limit,
+        "offset": offset,
+        "sort": sort
+    }
+    response_dict = client.list_connectors(params)
     readable_output = tableToMarkdown(
         f'Tenable Connectors', response_dict.get("connectors"), headers=["id", "name", "date_created", "data_type", "status", "expired", "incremental_mode", "network_uuid", "container_uuid", "status_message", "params"])
     return CommandResults(
@@ -1816,7 +1818,7 @@ def list_plugins_by_family_command(client: Client) -> CommandResults:
         raw_response=response_dict)
 
 
-def get_plugin_details_command() -> CommandResults:
+def get_plugin_details_command(client: Client) -> CommandResults:
     """
     tenable-io-get-plugin-details: Retrieves details for the specified plugin.
 
@@ -1827,32 +1829,36 @@ def get_plugin_details_command() -> CommandResults:
         CommandResults: A ``CommandResults`` object that is then passed to ``return_results``, that contains asset
         details.
     """
-    plugin_id = demisto.getArg('plugin_id')
+    args = demisto.args()
+    plugin_id = args.get('plugin_id', '')
 
     if not plugin_id:
-        return_error("Missing argument plugin_id")
+        raise ValueError("Missing argument plugin_id")
 
-    try:
-        details = send_plugin_details_request(plugin_id)
-        plugin_detail = {
-            "family_name": details.get("family_name"),
-            "name": details.get("name"),
-            "id": details.get("id"),
-        }
-        for attr in details.get("attributes"):
-            plugin_detail[attr.get("attribute_name")] = attr.get("attribute_value")
-        description = plugin_detail["description"]
-        name = plugin_detail["name"]
-    except DemistoException as e:
-        return_error(f'Failed to include custom attributes. {e}')
+    details = client.get_plugin_details(plugin_id)
+    plugin_detail = {
+        "family_name": details.get("family_name"),
+        "name": details.get("name"),
+        "id": details.get("id"),
+    }
+
+    for attr in details.get("attributes"):
+        plugin_detail[attr.get("attribute_name")] = attr.get("attribute_value")
+    description = plugin_detail["description"]
+    name = plugin_detail["name"]
 
     readable_output = tableToMarkdown(
-        f'Plugin Details for {name}', plugin_detail, headers=["id", "name", "family_name", "fname", "description", "plugin_publication_date", "solution"])
+        f'Plugin Details for {name}',
+        plugin_detail,
+        headers=["id", "name", "family_name", "fname", "description", "plugin_publication_date", "solution"]
+    )
+
     return CommandResults(
         outputs_prefix='TenableIO.PluginDetails',
         outputs=plugin_detail,
         readable_output=readable_output,
-        raw_response=plugin_detail)
+        raw_response=details
+    )
 
 
 ''' SCANNER COMMANDS '''
@@ -2148,8 +2154,8 @@ def main():  # pragma: no cover
             return_results(list_plugin_families_command(client))
         elif command == 'tenable-io-list-plugins-by-family':
             return_results(list_plugins_by_family_command(client))
-        elif command == 'tenable-io-get-plugin-details': # Not complete
-            return_results(get_plugin_details_command())
+        elif command == 'tenable-io-get-plugin-details':
+            return_results(get_plugin_details_command(client))
         # Scan Commands
         elif command == 'tenable-io-list-scanners':
             return_results(list_scanners_command(client))
